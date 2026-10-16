@@ -1,0 +1,45 @@
+services:
+  db:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${dbRootPassword:?Set dbRootPassword in .env}
+      MYSQL_DATABASE: ${dbName:-warehouse}
+      MYSQL_USER: ${dbUser:?Set dbUser in .env}
+      MYSQL_PASSWORD: ${dbPassword:?Set dbPassword in .env}
+    volumes:
+      - warehouse_data:/var/lib/mysql
+    networks:
+      - warehouse_network
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p\"$${MYSQL_ROOT_PASSWORD}\""]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+
+  app:
+    build: .
+    image: appexample
+    restart: unless-stopped
+    environment:
+      secretKey: ${secretKey:?Set secretKey in .env}
+      dbUser: ${dbUser:?Set dbUser in .env}
+      dbPassword: ${dbPassword:?Set dbPassword in .env}
+      dbHost: db
+      dbPort: 3306
+      dbName: ${dbName:-warehouse}
+    ports:
+      - "5000:5000"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - warehouse_network
+
+networks:
+  warehouse_network:
+    driver: bridge
+
+volumes:
+  warehouse_data:
